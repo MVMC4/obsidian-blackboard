@@ -109,6 +109,40 @@ describe('DrawingEngine — diagram selection', () => {
     expect(engine.strokeManager.objects[0].width).toBe(60);
     expect(engine.strokeManager.objects[0].height).toBe(40);
   });
+
+  it('does not lasso-select a box when only a narrow interior strip is enclosed', () => {
+    const engine = new DrawingEngine(createMockContainer(), 800, 600);
+    engine.loadObjects([{
+      id: 'box', kind: 'rectangle', x: 20, y: 20, width: 120, height: 80,
+      color: '#fff', size: 2, opacity: 1, fill: 'transparent', fillOpacity: 0, timestamp: 1,
+    }]);
+    engine.loadStrokes([{
+      id: 'text', tool: 'pen', color: '#fff', size: 2, opacity: 1,
+      points: [[55, 45, 0.5], [65, 45, 0.5]], hasPressure: false, timestamp: 2,
+    }]);
+
+    engine.beginSelection(45, 35);
+    engine.updateSelection(75, 55);
+    engine.endSelection();
+
+    expect(engine.getSelection()).toEqual({ strokeIds: ['text'], objectIds: [] });
+  });
+
+  it('moves a lasso-selected group when dragging from inside its selection bounds', () => {
+    const engine = new DrawingEngine(createMockContainer(), 800, 600);
+    engine.loadStrokes([{
+      id: 'text', tool: 'pen', color: '#fff', size: 2, opacity: 1,
+      points: [[40, 40, 0.5], [50, 40, 0.5]], hasPressure: false, timestamp: 1,
+    }]);
+    engine.beginSelection(30, 30);
+    engine.updateSelection(60, 60);
+    engine.endSelection();
+    engine.beginSelection(45, 40);
+    engine.updateSelection(75, 70);
+    expect(engine.endSelection()).toBe(true);
+    expect(engine.strokeManager.strokes[0].points[0][0]).toBe(70);
+    expect(engine.strokeManager.strokes[0].points[0][1]).toBe(70);
+  });
 });
 
 describe('DrawingEngine — shared tool state (B4: tool leak across surfaces)', () => {

@@ -73,6 +73,7 @@ export class GlobalToolbar {
   private unsubStroke: () => void;
   private unsubStrokeEnd: () => void;
   private onResize: () => void;
+  private themeObserver: MutationObserver | null = null;
   // iPad home-indicator inset; the toolbar is kept above this to avoid clipping.
   private safeBottom = 0;
 
@@ -105,6 +106,10 @@ export class GlobalToolbar {
     if (window.visualViewport) {
       window.visualViewport.addEventListener('resize', this.onResize);
       window.visualViewport.addEventListener('scroll', this.onResize);
+    }
+    if (activeDocument.body) {
+      this.themeObserver = new MutationObserver(() => this.sync());
+      this.themeObserver.observe(activeDocument.body, { attributes: true, attributeFilter: ['class'] });
     }
   }
 
@@ -669,8 +674,20 @@ export class GlobalToolbar {
     if (!this.surface) return;
     const pen = this.toolButtons.get('pen');
     const highlighter = this.toolButtons.get('highlighter');
-    if (pen) pen.style.color = this.surface.penColor;
-    if (highlighter) highlighter.style.color = this.surface.highlighterColor;
+    if (pen) pen.style.color = this.readableToolTint(this.surface.penColor);
+    if (highlighter) highlighter.style.color = this.readableToolTint(this.surface.highlighterColor);
+  }
+
+  private readableToolTint(color: string): string {
+    if (!/^#[0-9a-f]{6}$/i.test(color)) return color;
+    const r = Number.parseInt(color.slice(1, 3), 16);
+    const g = Number.parseInt(color.slice(3, 5), 16);
+    const b = Number.parseInt(color.slice(5, 7), 16);
+    const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+    const lightTheme = activeDocument.body.classList.contains('theme-light');
+    if (lightTheme && luminance > 0.82) return 'var(--text-normal)';
+    if (!lightTheme && luminance < 0.18) return 'var(--text-normal)';
+    return color;
   }
 
   /** Wheel path: arbitrary colors set the active tool color but never rewrite
@@ -788,6 +805,7 @@ export class GlobalToolbar {
       window.visualViewport.removeEventListener('resize', this.onResize);
       window.visualViewport.removeEventListener('scroll', this.onResize);
     }
+    this.themeObserver?.disconnect();
     this.root.remove();
     this.pill.remove();
     this.colorPopover.remove();

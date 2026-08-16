@@ -298,7 +298,7 @@ export class DrawingEngine {
       if (hit.kind === 'stroke') this.selectedStrokeIds.add(hit.id);
       else this.selectedObjectIds.add(hit.id);
       this.staticDirty = true;
-    } else if (!hit) {
+    } else if (!hit && !this.pointInsideSelectionBounds(x, y)) {
       this.selectedStrokeIds.clear();
       this.selectedObjectIds.clear();
       this.staticDirty = true;
@@ -346,7 +346,10 @@ export class DrawingEngine {
     const drag = this.selectionDrag;
     if (!drag) return false;
     let moved = false;
+    let selectionChanged = false;
     if (drag.mode === 'lasso') {
+      const previousStrokeIds = [...this.selectedStrokeIds].sort().join('|');
+      const previousObjectIds = [...this.selectedObjectIds].sort().join('|');
       const left = Math.min(drag.startX, drag.lastX);
       const right = Math.max(drag.startX, drag.lastX);
       const top = Math.min(drag.startY, drag.lastY);
@@ -354,11 +357,13 @@ export class DrawingEngine {
       this.selectedStrokeIds.clear();
       this.selectedObjectIds.clear();
       for (const stroke of this.strokeManager.strokes) {
-        if (this.strokeIntersectsRect(stroke, left, top, right, bottom)) this.selectedStrokeIds.add(stroke.id);
+        if (this.strokeContainedByRect(stroke, left, top, right, bottom)) this.selectedStrokeIds.add(stroke.id);
       }
       for (const object of this.strokeManager.objects) {
-        if (this.objectIntersectsRect(object, left, top, right, bottom)) this.selectedObjectIds.add(object.id);
+        if (this.objectContainedByRect(object, left, top, right, bottom)) this.selectedObjectIds.add(object.id);
       }
+      selectionChanged = previousStrokeIds !== [...this.selectedStrokeIds].sort().join('|') ||
+        previousObjectIds !== [...this.selectedObjectIds].sort().join('|');
       this.staticDirty = true;
     } else if (drag.mode === 'move') {
       const dx = drag.lastX - drag.startX;
@@ -381,7 +386,7 @@ export class DrawingEngine {
     this.activeDirty = true;
     this.staticDirty = true;
     this.requestRender();
-    return moved;
+    return moved || selectionChanged;
   }
 
   deleteSelection(): boolean {
@@ -460,77 +465,34 @@ export class DrawingEngine {
     return { x: left, y: top, width: Math.abs(object.width) + pad * 2, height: Math.abs(object.height) + pad * 2 };
   }
 
-  private boundsIntersect(bounds: { x: number; y: number; width: number; height: number }, left: number, top: number, right: number, bottom: number): boolean {
-    return bounds.x <= right && bounds.x + bounds.width >= left && bounds.y <= bottom && bounds.y + bounds.height >= top;
-  }
-
-  private strokeIntersectsRect(stroke: Stroke, left: number, top: number, right: number, bottom: number): boolean {
-    for (let i = 0; i < stroke.points.length; i++) {
-      const point = stroke.points[i];
-      if (point[0] >= left && point[0] <= right && point[1] >= top && point[1] <= bottom) return true;
-      if (i > 0) {
-        const previous = stroke.points[i - 1];
-        const segmentBounds = {
-          x: Math.min(previous[0], point[0]),
-          y: Math.min(previous[1], point[1]),
-          width: Math.abs(point[0] - previous[0]),
-          height: Math.abs(point[1] - previous[1]),
-        };
-        if (this.boundsIntersect(segmentBounds, left, top, right, bottom)) return true;
-      }
-    }
-    return false;
-  }
-
-  private objectIntersectsRect(object: DiagramObject, left: number, top: number, right: number, bottom: number): boolean {
+  private objectContainedByRect(object: DiagramObject, left: number, top: number, right: number, bottom: number): boolean {
     const x2 = object.x + object.width;
     const y2 = object.y + object.height;
     if (object.kind === 'line' || object.kind === 'arrow') {
-      return this.segmentIntersectsRect(object.x, object.y, x2, y2, left, top, right, bottom);
+      return this.pointInRect(object.x, object.y, left, top, right, bottom) && this.pointInRect(x2, y2, left, top, right, bottom);
     }
-    if (object.kind === 'rectangle') {
-      const ox1 = Math.min(object.x, x2);
-      const ox2 = Math.max(object.x, x2);
-      const oy1 = Math.min(object.y, y2);
-      const oy2 = Math.max(object.y, y2);
-      return this.segmentIntersectsRect(ox1, oy1, ox2, oy1, left, top, right, bottom) ||
-        this.segmentIntersectsRect(ox2, oy1, ox2, oy2, left, top, right, bottom) ||
-        this.segmentIntersectsRect(ox2, oy2, ox1, oy2, left, top, right, bottom) ||
-        this.segmentIntersectsRect(ox1, oy2, ox1, oy1, left, top, right, bottom);
-    }
-    const cx = (object.x + x2) / 2;
-    const cy = (object.y + y2) / 2;
-    const rx = Math.max(1, Math.abs(object.width) / 2);
-    const ry = Math.max(1, Math.abs(object.height) / 2);
-    const closestX = Math.max(left, Math.min(cx, right));
-    const closestY = Math.max(top, Math.min(cy, bottom));
-    const normalized = Math.hypot((closestX - cx) / rx, (closestY - cy) / ry);
-    return normalized <= 1;
+    const bounds = this.objectBounds(object);
+    return this.pointInRect(bounds.x, bounds.y, left, top, right, bottom) &&
+      this.pointInRect(bounds.x + bounds.width, bounds.y + bounds.height, left, top, right, bottom);
   }
 
-  private segmentIntersectsRect(x1: number, y1: number, x2: number, y2: number, left: number, top: number, right: number, bottom: number): boolean {
-    if ((x1 >= left && x1 <= right && y1 >= top && y1 <= bottom) ||
-        (x2 >= left && x2 <= right && y2 >= top && y2 <= bottom)) return true;
-    return this.segmentsIntersect(x1, y1, x2, y2, left, top, right, top) ||
-      this.segmentsIntersect(x1, y1, x2, y2, right, top, right, bottom) ||
-      this.segmentsIntersect(x1, y1, x2, y2, right, bottom, left, bottom) ||
-      this.segmentsIntersect(x1, y1, x2, y2, left, bottom, left, top);
+  private strokeContainedByRect(stroke: Stroke, left: number, top: number, right: number, bottom: number): boolean {
+    if (stroke.points.length === 0) return false;
+    const tolerance = stroke.size / 2;
+    return stroke.points.every((point) => point[0] - tolerance >= left && point[0] + tolerance <= right &&
+      point[1] - tolerance >= top && point[1] + tolerance <= bottom);
   }
 
-  private segmentsIntersect(ax: number, ay: number, bx: number, by: number, cx: number, cy: number, dx: number, dy: number): boolean {
-    const orientation = (px: number, py: number, qx: number, qy: number, rx: number, ry: number): number =>
-      (qy - py) * (rx - qx) - (qx - px) * (ry - qy);
-    const onSegment = (px: number, py: number, qx: number, qy: number, rx: number, ry: number): boolean =>
-      Math.min(px, rx) <= qx && qx <= Math.max(px, rx) && Math.min(py, ry) <= qy && qy <= Math.max(py, ry);
-    const o1 = orientation(ax, ay, bx, by, cx, cy);
-    const o2 = orientation(ax, ay, bx, by, dx, dy);
-    const o3 = orientation(cx, cy, dx, dy, ax, ay);
-    const o4 = orientation(cx, cy, dx, dy, bx, by);
-    if ((o1 > 0 && o2 < 0 || o1 < 0 && o2 > 0) && (o3 > 0 && o4 < 0 || o3 < 0 && o4 > 0)) return true;
-    return (o1 === 0 && onSegment(ax, ay, cx, cy, bx, by)) ||
-      (o2 === 0 && onSegment(ax, ay, dx, dy, bx, by)) ||
-      (o3 === 0 && onSegment(cx, cy, ax, ay, dx, dy)) ||
-      (o4 === 0 && onSegment(cx, cy, bx, by, dx, dy));
+  private pointInRect(x: number, y: number, left: number, top: number, right: number, bottom: number): boolean {
+    return x >= left && x <= right && y >= top && y <= bottom;
+  }
+
+  private pointInsideSelectionBounds(x: number, y: number): boolean {
+    const bounds = this.selectionBounds();
+    if (!bounds) return false;
+    const padding = Math.max(10, 8 / Math.max(0.1, this.view.scale));
+    return this.pointInRect(x, y, bounds.x - padding, bounds.y - padding,
+      bounds.x + bounds.width + padding, bounds.y + bounds.height + padding);
   }
 
   private resizeHandleHit(x: number, y: number): string | null {
