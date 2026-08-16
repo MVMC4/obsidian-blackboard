@@ -1,0 +1,11 @@
+{
+	"id": "blackboard",
+	"name": "Blackboard Plus",
+	"version": "1.3.0",
+	"minAppVersion": "1.6.6",
+	"description": "Low-latency Apple Pencil drawing with diagram selection, erasing, and per-board paper styles.",
+	"author": "James Wolensky",
+	"authorUrl": "https://github.com/jameswolensky",
+	"fundingUrl": "https://github.com/sponsors/jameswolensky",
+	"isDesktopOnly": false
+}

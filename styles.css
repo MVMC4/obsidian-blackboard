@@ -1,0 +1,409 @@
+.blackboard-drawing-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.blackboard-static,
+.blackboard-active {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.blackboard-active {
+  background: transparent;
+  pointer-events: auto;
+}
+
+.blackboard-static {
+  pointer-events: none;
+}
+
+.blackboard-canvas-node {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.blackboard-canvas-node .blackboard-preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.blackboard-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  user-select: none;
+}
+
+.blackboard-embedded-drawing {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  z-index: 10;
+}
+
+.blackboard-embed {
+  position: relative;
+  min-height: 200px;
+  border-radius: var(--radius-m);
+  overflow: hidden;
+}
+
+.blackboard-embed .blackboard-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: var(--text-muted);
+}
+
+.blackboard-embed .blackboard-preview-img {
+  width: 100%;
+  display: block;
+}
+
+/* Invisible probe used to measure env(safe-area-inset-bottom) (GlobalToolbar.measureSafeBottom). */
+.blackboard-safe-area-probe {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  width: 0;
+  height: env(safe-area-inset-bottom);
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.blackboard-global-toolbar {
+  position: fixed;
+  z-index: 10000;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: clamp(2px, 0.6vw, 4px);
+  padding: 6px clamp(6px, 1.2vw, 10px);
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 28px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.blackboard-export-download { display: none; }
+.blackboard-global-toolbar::-webkit-scrollbar { display: none; }
+
+.blackboard-global-toolbar .blackboard-gt-btn {
+  /* iOS/WKWebView applies native button styling that overrides width/height/
+     border-radius — reset it so the flat radius below holds on WKWebView too. */
+  -webkit-appearance: none;
+  appearance: none;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(34px, 7vw, 42px);
+  height: clamp(34px, 7vw, 42px);
+  min-width: clamp(34px, 7vw, 42px);
+  padding: 0;
+  border: none;
+  background: transparent;
+  /* Obsidian's native `button` box-shadow (--input-shadow) otherwise bleeds through the
+     reset above, drawing a rounded-box shadow around every flat toolbar button. */
+  box-shadow: none;
+  /* Flat tool buttons (pen/highlighter/eraser/undo/redo/insert/collapse): a small
+     radius, matching Obsidian's native controls. Only the color swatches and the
+     rainbow color well (.blackboard-gt-swatch) stay circular. */
+  border-radius: var(--radius-s);
+  color: var(--text-normal);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.blackboard-global-toolbar .blackboard-gt-btn svg {
+  width: clamp(20px, 4.6vw, 24px);
+  height: clamp(20px, 4.6vw, 24px);
+}
+.blackboard-global-toolbar .blackboard-gt-btn:hover { background: var(--background-modifier-hover); }
+/* The SELECTED tool reads as a circular accent chip; unselected buttons stay flat. */
+.blackboard-global-toolbar .blackboard-gt-btn.active {
+  color: var(--text-on-accent);
+  background: var(--interactive-accent);
+  border-radius: 50%;
+}
+.blackboard-global-toolbar .blackboard-gt-btn:disabled { opacity: 0.4; cursor: default; }
+
+.blackboard-global-toolbar .blackboard-gt-sep {
+  width: 1px;
+  height: 24px;
+  background: var(--background-modifier-border);
+  flex-shrink: 0;
+  margin: 0 2px;
+}
+
+.blackboard-gt-swatch {
+  /* See .blackboard-gt-btn: reset native iOS button styling so swatches stay
+     perfectly circular on WKWebView. */
+  -webkit-appearance: none;
+  appearance: none;
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--background-modifier-border);
+  padding: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+  flex-shrink: 0;
+}
+.blackboard-gt-colorwell {
+  position: relative;
+  width: clamp(30px, 6.5vw, 36px);
+  height: clamp(30px, 6.5vw, 36px);
+  min-width: clamp(30px, 6.5vw, 36px);
+  background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red);
+}
+/* No-surface state: the color well is disabled until a drawing is active. */
+.blackboard-gt-colorwell:disabled { opacity: 0.4; cursor: default; }
+
+.blackboard-gt-popover {
+  position: fixed;
+  z-index: 10001;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 12px;
+  padding: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  touch-action: none;
+}
+.blackboard-gt-swatches {
+  display: grid;
+  grid-template-columns: repeat(4, 28px);
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.blackboard-gt-wheel { display: flex; justify-content: center; }
+
+.blackboard-gt-popover-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  text-align: center;
+}
+.blackboard-gt-size-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.blackboard-gt-size-dot {
+  -webkit-appearance: none;
+  appearance: none;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.blackboard-gt-size-dot:hover { background: var(--background-modifier-hover); }
+/* Selected size dot gets the same purple accent fill as the selected tool button
+   (.blackboard-gt-btn.active), so the chosen brush size reads as selected (QA3). */
+.blackboard-gt-size-dot.active { background: var(--interactive-accent); }
+.blackboard-gt-size-dot-inner { background: var(--text-normal); border-radius: 50%; }
+/* On the accent fill, the inner dot switches to the on-accent colour to stay visible. */
+.blackboard-gt-size-dot.active .blackboard-gt-size-dot-inner { background: var(--text-on-accent); }
+
+.blackboard-gt-page-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(70px, 1fr));
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.blackboard-gt-page-option {
+  -webkit-appearance: none;
+  appearance: none;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  padding: 7px 9px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.blackboard-gt-page-option.active {
+  border-color: var(--interactive-accent);
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+.blackboard-gt-page-size {
+  display: block;
+  width: 100%;
+  min-width: 180px;
+  accent-color: var(--interactive-accent);
+}
+.blackboard-gt-page-presets {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 6px;
+}
+.blackboard-gt-page-preset,
+.blackboard-gt-page-number {
+  -webkit-appearance: none;
+  appearance: none;
+  box-sizing: border-box;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  padding: 5px 7px;
+  cursor: pointer;
+}
+.blackboard-gt-page-preset { min-width: 34px; }
+.blackboard-gt-page-preset.active {
+  border-color: var(--interactive-accent);
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+.blackboard-gt-page-number {
+  display: block;
+  width: 100%;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.blackboard-gt-option-row {
+  display: flex;
+  gap: 6px;
+}
+.blackboard-gt-option {
+  -webkit-appearance: none;
+  appearance: none;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  padding: 7px 9px;
+  min-width: 64px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.blackboard-gt-option:hover { background: var(--background-modifier-hover); }
+.blackboard-gt-option.active {
+  background: var(--interactive-accent);
+  border-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+.blackboard-gt-option:disabled { opacity: 0.4; cursor: default; }
+
+.blackboard-zoom-hud {
+  position: absolute;
+  z-index: 20;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  left: 10px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  background: var(--background-secondary);
+  background: color-mix(in srgb, var(--background-secondary) 88%, transparent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  touch-action: manipulation;
+  user-select: none;
+}
+.blackboard-zoom-label {
+  min-width: 44px;
+  padding: 3px 5px;
+  color: var(--text-normal);
+  font-size: 12px;
+  text-align: center;
+}
+.blackboard-zoom-btn {
+  -webkit-appearance: none;
+  appearance: none;
+  min-width: 42px;
+  padding: 4px 7px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-normal);
+  font-size: 11px;
+}
+.blackboard-zoom-btn:hover { background: var(--background-modifier-hover); }
+
+/* iPad cascade shield: Obsidian's `.is-tablet button:not(.clickable-icon)` rule
+   (specificity 0,2,1) injects padding into every <button>, turning the round controls
+   into ovals with their icons clipped to nothing — iPad only, since it's gated on
+   `.is-tablet`. Outrank it by specificity alone: each tripled-class selector below is
+   (0,3,0) plus the element, which beats (0,2,1) on specificity alone, independent of
+   theme/app stylesheet load order. The colorwell carries both the swatch and colorwell
+   classes, so its rule must stay AFTER the swatch rule (equal specificity, order wins).
+   Root cause and this replacement verified in real iPad WebKit via test/webkit. */
+button.blackboard-gt-btn.blackboard-gt-btn.blackboard-gt-btn,
+button.blackboard-gt-swatch.blackboard-gt-swatch.blackboard-gt-swatch,
+button.blackboard-gt-colorwell.blackboard-gt-colorwell.blackboard-gt-colorwell,
+button.blackboard-gt-size-dot.blackboard-gt-size-dot.blackboard-gt-size-dot {
+  padding: 0;
+  box-sizing: border-box;
+}
+button.blackboard-gt-btn.blackboard-gt-btn.blackboard-gt-btn {
+  width: clamp(34px, 7vw, 42px);
+  height: clamp(34px, 7vw, 42px);
+  min-width: clamp(34px, 7vw, 42px);
+}
+button.blackboard-gt-swatch.blackboard-gt-swatch.blackboard-gt-swatch {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+}
+button.blackboard-gt-colorwell.blackboard-gt-colorwell.blackboard-gt-colorwell {
+  width: clamp(30px, 6.5vw, 36px);
+  height: clamp(30px, 6.5vw, 36px);
+  min-width: clamp(30px, 6.5vw, 36px);
+}
+button.blackboard-gt-size-dot.blackboard-gt-size-dot.blackboard-gt-size-dot {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+}
+
+.blackboard-global-toolbar-pill {
+  position: fixed;
+  z-index: 1000;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 50%;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  color: var(--text-normal);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.blackboard-global-toolbar-pill svg { width: 28px; height: 28px; }
