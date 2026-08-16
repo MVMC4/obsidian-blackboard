@@ -4,6 +4,8 @@ import { DrawingEngine } from '../infrastructure/canvas-renderer';
 import type { ToolManager } from '../domain/tool-manager';
 import { eraseAtPoint } from '../application/eraser-service';
 import { downloadSvg } from '../application/export-download';
+import { writeExportArtifact, type ExportFormat } from '../application/export-download';
+import { Notice } from 'obsidian';
 import { inputDebugEnabled, inputDebugLog } from '../dev/input-debug';
 
 // Replaced by esbuild `define` (true in dev builds, false in production, where the
@@ -208,7 +210,7 @@ export async function mountBlackboardEmbed(repo: IDrawingRepository, embedEl: HT
         strokes: JSON.parse(JSON.stringify(engine.strokeManager.strokes)) as Stroke[],
         objects: objects ? JSON.parse(JSON.stringify(objects)) as DiagramObject[] : undefined,
         background: { color: 'transparent' },
-        page: page?.type === 'blank' ? undefined : page,
+        page: page?.type === 'blank' && page.color === 'transparent' ? undefined : page,
         inkProfile: inkProfile?.mode === 'raw' ? undefined : inkProfile,
         contentBounds: (b.width > 0 && b.height > 0) ? b : undefined,
       };
@@ -225,6 +227,18 @@ export async function mountBlackboardEmbed(repo: IDrawingRepository, embedEl: HT
     if (data.strokes.length === 0 && data.objects.length === 0) return;
     const basename = filePath.split('/').pop()?.replace(/\.[^.]+$/, '') || 'blackboard-drawing';
     downloadSvg(data.strokes, data.objects, engine.getPage(), engine.getInkProfile(), basename);
+  }, async (format: ExportFormat, selectionOnly = false) => {
+    const data = engine.getExportData(selectionOnly);
+    if (data.strokes.length === 0 && data.objects.length === 0) {
+      new Notice('Nothing selected to export.');
+      return;
+    }
+    try {
+      const path = await writeExportArtifact(repo, filePath, data.strokes, data.objects, engine.getPage(), engine.getInkProfile(), format, selectionOnly);
+      new Notice(`Exported ${path}`);
+    } catch {
+      new Notice('Export failed. Check that the drawing folder is writable.');
+    }
   });
   surfaceManager?.register(surface, drawingContainer);
   // Auto-show the shared toolbar when a page/node already contains a drawing, instead

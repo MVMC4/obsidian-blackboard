@@ -279,6 +279,25 @@
   padding: 5px 7px;
   cursor: pointer;
 }
+.blackboard-gt-page-tones {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.blackboard-gt-page-tone {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  background: var(--blackboard-tone);
+  color: #ffffff;
+  text-shadow: 0 1px 2px #000000;
+  cursor: pointer;
+}
+.blackboard-gt-page-tone[data-page-tone="light"] { color: #111827; text-shadow: none; }
+.blackboard-gt-page-tone.active { outline: 2px solid var(--interactive-accent); outline-offset: 1px; }
 .blackboard-gt-page-preset { min-width: 34px; }
 .blackboard-gt-page-preset.active {
   border-color: var(--interactive-accent);
@@ -293,7 +312,8 @@
 }
 
 .blackboard-gt-option-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(110px, 1fr));
   gap: 6px;
 }
 .blackboard-gt-option {

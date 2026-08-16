@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.2
+
+- Fixed multi-step undo and redo history after asynchronous view/store attachment.
+- Made standalone selection and shape tools ignore palm touch pointers instead of starting pan gestures.
+- Added vault-native SVG and PDF export for the whole drawing or the current selection.
+- Added Dark and Light board-tone controls under Paper style.
+- Improved selection separation so lassoing a narrow area does not select a partially enclosed shape.
+
 ## 1.3.1
 
 - Fixed moving lasso-selected handwriting groups.

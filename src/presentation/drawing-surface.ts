@@ -1,5 +1,6 @@
 import type { Background, DrawingTool, InkProfile } from '../domain/entities';
 import type { DrawingEngine } from '../infrastructure/canvas-renderer';
+import type { ExportFormat } from '../application/export-download';
 
 export type ToolName = DrawingTool;
 
@@ -18,6 +19,7 @@ export interface DrawingSurface {
   setSelectedLineStyle?(style: 'solid' | 'dashed' | 'dotted'): void;
   deleteSelection?(): void;
   exportSvg?(selectionOnly?: boolean): void;
+  exportDrawing?(format: ExportFormat, selectionOnly?: boolean): Promise<void>;
   undo(): void;
   redo(): void;
   readonly activeTool: ToolName;
@@ -36,7 +38,12 @@ export interface DrawingSurface {
 }
 
 /** Build a DrawingSurface backed by a DrawingEngine + a save callback. */
-export function engineSurface(engine: DrawingEngine, save: () => void, exportSvg?: (selectionOnly?: boolean) => void): DrawingSurface {
+export function engineSurface(
+  engine: DrawingEngine,
+  save: () => void,
+  exportSvg?: (selectionOnly?: boolean) => void,
+  exportDrawing?: (format: ExportFormat, selectionOnly?: boolean) => Promise<void>,
+): DrawingSurface {
   return {
     setTool: (t) => { engine.clearEraserCursor(); engine.toolManager.setTool(t); },
     setColor: (c) => {
@@ -54,8 +61,9 @@ export function engineSurface(engine: DrawingEngine, save: () => void, exportSvg
       save();
     },
     exportSvg,
-    undo: () => { engine.strokeManager.undo(); engine.staticDirty = true; engine.requestRender(); save(); },
-    redo: () => { engine.strokeManager.redo(); engine.staticDirty = true; engine.requestRender(); save(); },
+    exportDrawing,
+    undo: () => { if (engine.undo()) save(); },
+    redo: () => { if (engine.redo()) save(); },
     get activeTool() { return engine.toolManager.activeTool; },
     get activeColor() { return engine.toolManager.activeColor; },
     get activeSize() { return engine.toolManager.activeSize; },

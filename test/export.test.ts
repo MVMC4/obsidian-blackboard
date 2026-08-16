@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { getSvgPathFromStroke, getStrokeBounds, exportSvg } from '../src/application/export-service';
+import { exportPdf } from '../src/application/pdf-export';
 import type { Stroke, Point, Background } from '../src/domain/entities';
 
 function makeStroke(points: Point[], color = '#ffffff', tool: 'pen' | 'highlighter' = 'pen'): Stroke {
@@ -153,5 +154,26 @@ describe('exportSvg', () => {
     const result = exportSvg([stroke], makeBackground());
 
     expect(result).toContain('opacity="0.3"');
+  });
+});
+
+describe('exportPdf', () => {
+  it('returns a valid PDF document header and trailer', () => {
+    const result = exportPdf([makeStroke([[10, 10, 0.5], [20, 20, 0.5], [30, 30, 0.5]])], makeBackground());
+
+    expect(result.startsWith('%PDF-1.4')).toBe(true);
+    expect(result).toContain('xref');
+    expect(result).toContain('%%EOF');
+  });
+
+  it('includes diagram shape commands and line styles', () => {
+    const result = exportPdf([], makeBackground(), undefined, [{
+      id: 'box', kind: 'rectangle', x: 10, y: 10, width: 80, height: 40,
+      color: '#ff0000', size: 2, opacity: 1, fill: 'transparent', fillOpacity: 0,
+      lineStyle: 'dashed', timestamp: 1,
+    }]);
+
+    expect(result).toContain('[8 6] 0 d');
+    expect(result).toContain(' re S');
   });
 });

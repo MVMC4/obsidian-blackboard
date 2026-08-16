@@ -3,6 +3,7 @@ import type { SurfaceManager } from './surface-manager';
 import type { DrawingSurface, ToolName } from './drawing-surface';
 import { setToolbarIcon, setSizeDotIcon, type IconName } from './toolbar-icons';
 import type { Background, InkProfileMode, PluginSettings } from '../domain/entities';
+import type { ExportFormat } from '../application/export-download';
 import { DEFAULT_PLUGIN_SETTINGS, INK_PROFILES } from '../domain/entities';
 import type { IroColorPickerLike, IroModuleLike } from '../types/obsidian-internals';
 
@@ -43,6 +44,7 @@ export class GlobalToolbar {
   private pageSizeRange!: HTMLInputElement;
   private pageSizeNumber!: HTMLInputElement;
   private pagePresetRow!: HTMLElement;
+  private pageToneRow!: HTMLElement;
   private inkBtn!: HTMLButtonElement;
   private inkPopover!: HTMLElement;
   private inkOptions!: HTMLElement;
@@ -309,6 +311,22 @@ export class GlobalToolbar {
       this.pageOptions.appendChild(button);
     }
 
+    const toneLabel = this.pagePopover.createDiv({ cls: 'blackboard-gt-popover-label' });
+    toneLabel.textContent = 'Board tone';
+    this.pageToneRow = this.pagePopover.createDiv({ cls: 'blackboard-gt-page-tones' });
+    for (const tone of [{ key: 'dark', label: 'Dark', color: '#000000' }, { key: 'light', label: 'Light', color: '#ffffff' }]) {
+      const button = createEl('button');
+      button.className = 'blackboard-gt-page-tone';
+      button.dataset.pageTone = tone.key;
+      button.textContent = tone.label;
+      button.style.setProperty('--blackboard-tone', tone.color);
+      button.addEventListener('pointerup', (e) => {
+        e.stopPropagation();
+        this.applyPageTone(tone.color);
+      });
+      this.pageToneRow.appendChild(button);
+    }
+
     const sizeLabel = this.pagePopover.createDiv({ cls: 'blackboard-gt-popover-label' });
     sizeLabel.textContent = 'Spacing';
     this.pagePresetRow = this.pagePopover.createDiv({ cls: 'blackboard-gt-page-presets' });
@@ -346,6 +364,12 @@ export class GlobalToolbar {
     if (!this.surface?.setPage || !Number.isFinite(value)) return;
     const gridSize = Math.max(8, Math.min(200, Math.round(value)));
     this.surface.setPage({ ...this.currentPage(), gridSize });
+    this.syncPageControls();
+  }
+
+  private applyPageTone(color: string): void {
+    if (!this.surface?.setPage) return;
+    this.surface.setPage({ ...this.currentPage(), color });
     this.syncPageControls();
   }
 
@@ -408,27 +432,27 @@ export class GlobalToolbar {
     this.exportPopover.setCssStyles({ display: 'none' });
     this.exportPopover.addEventListener('pointerdown', (e) => e.stopPropagation());
     const label = this.exportPopover.createDiv({ cls: 'blackboard-gt-popover-label' });
-    label.textContent = 'Export SVG';
+    label.textContent = 'Export drawing';
     this.exportOptions = this.exportPopover.createDiv({ cls: 'blackboard-gt-option-row' });
-    const all = createEl('button');
-    all.className = 'blackboard-gt-option';
-    all.textContent = 'Everything';
-    all.addEventListener('pointerup', (e) => {
-      e.stopPropagation();
-      this.surface?.exportSvg?.(false);
-      this.closePopovers();
-    });
-    this.exportOptions.appendChild(all);
-    const selected = createEl('button');
-    selected.className = 'blackboard-gt-option';
-    selected.textContent = 'Selection';
-    selected.dataset.exportSelection = 'true';
-    selected.addEventListener('pointerup', (e) => {
-      e.stopPropagation();
-      this.surface?.exportSvg?.(true);
-      this.closePopovers();
-    });
-    this.exportOptions.appendChild(selected);
+    const options: Array<{ format: ExportFormat; selectionOnly: boolean; label: string }> = [
+      { format: 'svg', selectionOnly: false, label: 'SVG · Everything' },
+      { format: 'svg', selectionOnly: true, label: 'SVG · Selection' },
+      { format: 'pdf', selectionOnly: false, label: 'PDF · Everything' },
+      { format: 'pdf', selectionOnly: true, label: 'PDF · Selection' },
+    ];
+    for (const option of options) {
+      const button = createEl('button');
+      button.className = 'blackboard-gt-option';
+      button.textContent = option.label;
+      if (option.selectionOnly) button.dataset.exportSelection = 'true';
+      button.addEventListener('pointerup', (e) => {
+        e.stopPropagation();
+        if (this.surface?.exportDrawing) void this.surface.exportDrawing(option.format, option.selectionOnly);
+        else if (option.format === 'svg') this.surface?.exportSvg?.(option.selectionOnly);
+        this.closePopovers();
+      });
+      this.exportOptions.appendChild(button);
+    }
   }
 
   private currentPage(): Background {
@@ -626,7 +650,7 @@ export class GlobalToolbar {
   private syncPageControls(): void {
     if (!this.surface) return;
     const page = this.currentPage();
-    this.pageBtn.classList.toggle('active', page.type !== 'blank');
+    this.pageBtn.classList.toggle('active', page.type !== 'blank' || page.color !== 'transparent');
     this.pageSizeRange.value = String(Math.max(12, Math.min(80, page.gridSize || 24)));
     this.pageSizeNumber.value = String(Math.max(8, Math.min(200, page.gridSize || 24)));
     for (const button of Array.from(this.pagePresetRow.querySelectorAll<HTMLElement>('[data-grid-size]'))) {
@@ -634,6 +658,10 @@ export class GlobalToolbar {
     }
     for (const button of Array.from(this.pageOptions.querySelectorAll<HTMLElement>('[data-page-type]'))) {
       button.classList.toggle('active', button.dataset.pageType === page.type);
+    }
+    const tone = page.color.toLowerCase() === '#ffffff' ? 'light' : page.color.toLowerCase() === '#000000' ? 'dark' : '';
+    for (const button of Array.from(this.pageToneRow.querySelectorAll<HTMLElement>('[data-page-tone]'))) {
+      button.classList.toggle('active', button.dataset.pageTone === tone);
     }
   }
 
@@ -657,8 +685,9 @@ export class GlobalToolbar {
 
   private syncExportControls(): void {
     if (!this.surface) return;
-    const selected = this.exportOptions.querySelector<HTMLElement>('[data-export-selection]');
-    if (selected) selected.toggleAttribute('disabled', this.surface.hasSelection !== true);
+    for (const selected of Array.from(this.exportOptions.querySelectorAll<HTMLElement>('[data-export-selection]'))) {
+      selected.toggleAttribute('disabled', this.surface.hasSelection !== true);
+    }
     this.exportBtn.classList.toggle('active', this.surface.hasSelection === true);
   }
 

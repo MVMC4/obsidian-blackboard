@@ -93,6 +93,29 @@ export class DrawingEngine {
     this.staticDirty = true;
   }
 
+  /** Undo the latest content mutation and repaint immediately. Returns false when the
+   * history is already empty so toolbar actions are harmless no-ops. */
+  undo(): boolean {
+    if (!this.strokeManager.canUndo()) return false;
+    this.strokeManager.undo();
+    this.clearSelection();
+    this.staticDirty = true;
+    this.activeDirty = true;
+    this.requestRender();
+    return true;
+  }
+
+  /** Redo the latest undone content mutation and repaint immediately. */
+  redo(): boolean {
+    if (!this.strokeManager.canRedo()) return false;
+    this.strokeManager.redo();
+    this.clearSelection();
+    this.staticDirty = true;
+    this.activeDirty = true;
+    this.requestRender();
+    return true;
+  }
+
   setPage(page: Background | undefined): void {
     this.page = page ? { ...this.page, ...page } : { type: 'blank', color: 'transparent', grid: false, gridSize: 24, gridColor: '#9aa4b2' };
     this.staticDirty = true;

@@ -1,4 +1,4 @@
-import { TextFileView, WorkspaceLeaf } from 'obsidian';
+import { Notice, TextFileView, WorkspaceLeaf } from 'obsidian';
 import type { Background, BlackboardFile, DiagramObject, InkProfile, PluginSettings, Stroke } from '../domain/entities';
 import { FILE_EXTENSION } from '../domain/entities';
 import { serialize, deserialize } from '../application/file-format';
@@ -8,6 +8,7 @@ import type { IDrawingRepository } from '../domain/ports';
 import type { DocumentStore, SharedDocumentHandle } from '../application/document-store';
 import { eraseAtPoint } from '../application/eraser-service';
 import { downloadSvg } from '../application/export-download';
+import { writeExportArtifact, type ExportFormat } from '../application/export-download';
 import { inputDebugEnabled, inputDebugLog } from '../dev/input-debug';
 
 // Replaced by esbuild `define` (true in dev builds, false in production, where the
@@ -216,7 +217,12 @@ export class BlackboardView extends TextFileView {
     this.engine.staticDirty = true;
     this.engine.render();
 
-    this.surface = engineSurface(this.engine, () => this.persist(), (selectionOnly) => this.downloadCurrentSvg(selectionOnly));
+    this.surface = engineSurface(
+      this.engine,
+      () => this.persist(),
+      (selectionOnly) => this.downloadCurrentSvg(selectionOnly),
+      (format, selectionOnly) => this.exportCurrent(format, selectionOnly),
+    );
     this.surfaceManager?.register(this.surface, this.drawingContainer);
     this.surfaceManager?.setActive(this.surface);
 
@@ -241,10 +247,19 @@ export class BlackboardView extends TextFileView {
       const handle = await this.store.acquire(this.file.path, this.repo);
       if (!this.engine) { handle.release(); return; } // torn down while awaiting
       this.handle = handle;
-      this.engine.loadStrokes(handle.getStrokes());
-      this.engine.loadObjects?.(handle.getFile().objects ?? []);
-      this.engine.setPage?.(handle.getFile().page);
-      this.engine.setInkProfile?.(handle.getFile().inkProfile);
+      // acquire() is asynchronous. A Pencil stroke can arrive while it is waiting, so do not
+      // blindly reseed the live engine and erase that stroke/history when the handle resolves.
+      // If the engine has diverged from the canonical file, keep the live edit and publish it;
+      // otherwise seed it from the store as usual.
+      const liveFile = this.buildFile();
+      if (serialize(liveFile) !== serialize(handle.getFile())) {
+        handle.commit(liveFile);
+      } else {
+        this.engine.loadStrokes(handle.getStrokes());
+        this.engine.loadObjects?.(handle.getFile().objects ?? []);
+        this.engine.setPage?.(handle.getFile().page);
+        this.engine.setInkProfile?.(handle.getFile().inkProfile);
+      }
       this.engine.staticDirty = true;
       this.engine.render();
       handle.subscribe(() => {
@@ -277,7 +292,7 @@ export class BlackboardView extends TextFileView {
       strokes: JSON.parse(JSON.stringify(this.engine!.strokeManager.strokes)) as Stroke[],
       objects: objects ? JSON.parse(JSON.stringify(objects)) as DiagramObject[] : undefined,
       background: { color: 'transparent' },
-      page: page?.type === 'blank' ? undefined : page,
+      page: page?.type === 'blank' && page.color === 'transparent' ? undefined : page,
       inkProfile: inkProfile?.mode === 'raw' ? undefined : inkProfile,
       contentBounds: hasContent ? cb : undefined,
     };
@@ -322,6 +337,21 @@ export class BlackboardView extends TextFileView {
     if (data.strokes.length === 0 && data.objects.length === 0) return;
     const basename = this.file?.basename ?? 'blackboard-drawing';
     downloadSvg(data.strokes, data.objects, this.engine.getPage(), this.engine.getInkProfile(), basename);
+  }
+
+  private async exportCurrent(format: ExportFormat, selectionOnly = false): Promise<void> {
+    if (!this.engine || !this.file || !this.repo) return;
+    const data = this.engine.getExportData(selectionOnly);
+    if (data.strokes.length === 0 && data.objects.length === 0) {
+      new Notice('Nothing selected to export.');
+      return;
+    }
+    try {
+      const path = await writeExportArtifact(this.repo, this.file.path, data.strokes, data.objects, this.engine.getPage(), this.engine.getInkProfile(), format, selectionOnly);
+      new Notice(`Exported ${path}`);
+    } catch {
+      new Notice('Export failed. Check that the drawing folder is writable.');
+    }
   }
 
   private buildZoomHud(): void {
@@ -541,6 +571,15 @@ export class BlackboardView extends TextFileView {
       // Standalone finger navigation: a touch pans/pinch-zooms the view, it never draws.
       // While a pen stroke is active, ignore fingers so a resting palm cannot pan.
       if (!this.isEmbedded && e.pointerType === 'touch') {
+        const tool = engine.toolManager.activeTool;
+        // Selection and shape tools are tap/drag controls. A palm must never become a
+        // competing navigation pointer while one of these tools is active; doing so made
+        // selection and line-style/color changes appear random on iPad.
+        if (tool === 'selection' || tool === 'line' || tool === 'arrow' || tool === 'rectangle' || tool === 'ellipse') {
+          e.stopPropagation();
+          e.preventDefault();
+          return;
+        }
         if (this.strokeActive) return; // palm rejection
         e.stopPropagation();
         e.preventDefault();
