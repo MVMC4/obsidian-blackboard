@@ -174,6 +174,39 @@ describe('DrawingEngine — diagram selection', () => {
   });
 });
 
+describe('DrawingEngine — public undo/redo path', () => {
+  it('undoes and redoes a committed handwritten stroke through the engine API', () => {
+    const engine = new DrawingEngine(createMockContainer(), 800, 600);
+    engine.toolManager.setTool('pen');
+    engine.beginStroke('pen');
+    engine.addPoint([10, 10, 0.5]);
+    engine.addPoint([30, 30, 0.5]);
+    engine.endStroke();
+
+    expect(engine.strokeManager.strokes).toHaveLength(1);
+    expect(engine.strokeManager.canUndo()).toBe(true);
+    expect(engine.undo()).toBe(true);
+    expect(engine.strokeManager.strokes).toHaveLength(0);
+    expect(engine.redo()).toBe(true);
+    expect(engine.strokeManager.strokes).toHaveLength(1);
+  });
+
+  it('undoes a completed selection move through the same engine API', () => {
+    const engine = new DrawingEngine(createMockContainer(), 800, 600);
+    engine.loadObjects([{
+      id: 'box', kind: 'rectangle', x: 20, y: 20, width: 60, height: 40,
+      color: '#fff', size: 2, opacity: 1, fill: 'transparent', fillOpacity: 0, lineStyle: 'solid', timestamp: 1,
+    }]);
+    engine.beginSelection(30, 30);
+    engine.updateSelection(50, 60);
+    expect(engine.endSelection()).toBe(true);
+
+    expect(engine.strokeManager.objects[0].x).toBe(40);
+    expect(engine.undo()).toBe(true);
+    expect(engine.strokeManager.objects[0].x).toBe(20);
+  });
+});
+
 describe('DrawingEngine — shared tool state (B4: tool leak across surfaces)', () => {
   it('uses an injected shared ToolManager instead of constructing its own', () => {
     const shared = new ToolManager({ ...DEFAULT_TOOL_STATE });

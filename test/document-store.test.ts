@@ -127,6 +127,27 @@ describe('DocumentStore', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it('ignores stale disk bytes while a newer local edit is pending', async () => {
+    const slow = new DocumentStore({ saveDelayMs: 10_000 });
+    const repo = mockRepo(file([stroke('a')]));
+    const h = await slow.acquire('Draw.blackboard', repo);
+    const onChange = vi.fn();
+    h.subscribe(onChange);
+
+    h.commit(file([stroke('a'), stroke('b')]));
+    // Simulate Obsidian reporting the old file before the debounced local save fires.
+    slow.reconcile('Draw.blackboard', serialize(file([stroke('a')])));
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(h.getStrokes().map((s) => s.id)).toEqual(['a', 'b']);
+
+    slow.flushAll();
+    // The same delayed old echo must remain ignored after the local write is flushed.
+    slow.reconcile('Draw.blackboard', serialize(file([stroke('a')])));
+    expect(onChange).not.toHaveBeenCalled();
+    expect(h.getStrokes().map((s) => s.id)).toEqual(['a', 'b']);
+  });
+
   it('releasing the last handle drops the entry so the next acquire reloads from disk', async () => {
     const repo = mockRepo(file([stroke('a')]));
     const h1 = await store.acquire('Draw.blackboard', repo);

@@ -87,6 +87,14 @@ export class DocumentStore {
     if (!entry) return;
     if (diskContent === serialize(entry.file)) return; // already our canonical state — nothing to do
     if (entry.seen.has(diskContent)) return; // a (possibly delayed) echo of one of our own writes
+    // A vault modify event can report the previous bytes while our debounced canonical edit
+    // is still waiting to be written. Treat that as a stale TextFileView/Obsidian echo, not as
+    // an external edit: reloading it would call loadStrokes/loadObjects and erase the active
+    // engine's undo stack immediately after a write, move, or shape operation.
+    if (entry.saveTimer !== null) {
+      this.remember(entry, diskContent);
+      return;
+    }
     const { file } = deserialize(diskContent);
     entry.file = file;
     this.remember(entry, diskContent); // remember accepted bytes so duplicate echoes are ignored too

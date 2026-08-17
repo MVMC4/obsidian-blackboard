@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.6
+
+- Fixed a debounced-save race that reloaded stale file bytes and erased Undo/Redo history immediately after writing or moving content.
+- Added direct engine regression tests for undoing handwriting and selection movement.
+
 ## 1.3.5
 
 - Added reliable semantic-click fallback for every toolbar action, including rectangle, ellipse, Undo, and Redo.
