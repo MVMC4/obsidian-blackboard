@@ -214,6 +214,7 @@ export class StrokeManager {
     const objectSet = new Set(objectIds);
     const objects = this.objects.filter((object) => objectSet.has(object.id));
     if (objects.length === 0) return false;
+    if (objects.every((object) => (object.lineStyle ?? 'solid') === lineStyle)) return false;
     const before = objects.map((object) => ({ id: object.id, lineStyle: object.lineStyle }));
     for (const object of objects) object.lineStyle = lineStyle;
     this.undoStack.push({

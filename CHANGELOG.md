@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.4
+
+- Added a mobile click fallback for Paper tone and line-style controls when iPad does not deliver a usable pointerup.
+- Made repeated line-style selection idempotent so a fallback click cannot create duplicate history entries.
+
 ## 1.3.3
 
 - Added automatic black/white ink contrast when switching between dark and light paper tones.

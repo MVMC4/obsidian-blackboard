@@ -320,9 +320,21 @@ export class GlobalToolbar {
       button.dataset.pageTone = tone.key;
       button.textContent = tone.label;
       button.style.setProperty('--blackboard-tone', tone.color);
-      button.addEventListener('pointerup', (e) => {
+      let lastPointerActivation = 0;
+      const applyTone = (e: Event) => {
         e.stopPropagation();
         this.applyPageTone(tone.color);
+      };
+      button.addEventListener('pointerup', (e) => {
+        lastPointerActivation = Date.now();
+        applyTone(e);
+      });
+      // WKWebView occasionally emits the semantic click without a usable pointerup when
+      // a toolbar button is tapped through an Obsidian overlay. Keep click as a fallback,
+      // while suppressing the synthetic click that follows a normal pointerup.
+      button.addEventListener('click', (e) => {
+        if (Date.now() - lastPointerActivation < 500) return;
+        applyTone(e);
       });
       this.pageToneRow.appendChild(button);
     }
@@ -417,11 +429,20 @@ export class GlobalToolbar {
       button.className = 'blackboard-gt-option';
       button.dataset.lineStyle = option.style;
       button.textContent = option.label;
-      button.addEventListener('pointerup', (e) => {
+      let lastPointerActivation = 0;
+      const applyStyle = (e: Event) => {
         e.stopPropagation();
         this.surface?.setSelectedLineStyle?.(option.style);
         this.syncStyleControls();
         this.closePopovers();
+      };
+      button.addEventListener('pointerup', (e) => {
+        lastPointerActivation = Date.now();
+        applyStyle(e);
+      });
+      button.addEventListener('click', (e) => {
+        if (Date.now() - lastPointerActivation < 500) return;
+        applyStyle(e);
       });
       this.styleOptions.appendChild(button);
     }
