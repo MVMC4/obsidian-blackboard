@@ -44,7 +44,7 @@ describe('DrawingEngine — diagram selection', () => {
     const engine = new DrawingEngine(createMockContainer(), 800, 600);
     engine.loadObjects([{
       id: 'box-1', kind: 'rectangle', x: 20, y: 20, width: 80, height: 50,
-      color: '#fff', size: 2, opacity: 1, fill: 'transparent', fillOpacity: 0, timestamp: 1,
+      color: '#fff', size: 2, opacity: 1, fill: 'transparent', fillOpacity: 0, lineStyle: 'solid', timestamp: 1,
     }]);
 
     engine.beginSelection(40, 40);
@@ -142,6 +142,35 @@ describe('DrawingEngine — diagram selection', () => {
     expect(engine.endSelection()).toBe(true);
     expect(engine.strokeManager.strokes[0].points[0][0]).toBe(70);
     expect(engine.strokeManager.strokes[0].points[0][1]).toBe(70);
+  });
+
+  it('changes the selected shape line style and makes the change undoable', () => {
+    const engine = new DrawingEngine(createMockContainer(), 800, 600);
+    engine.loadObjects([{
+      id: 'box', kind: 'rectangle', x: 20, y: 20, width: 60, height: 40,
+      color: '#fff', size: 2, opacity: 1, fill: 'transparent', fillOpacity: 0, lineStyle: 'solid', timestamp: 1,
+    }]);
+    engine.beginSelection(30, 30);
+    engine.endSelection();
+
+    expect(engine.setSelectionLineStyle('dashed')).toBe(true);
+    expect(engine.strokeManager.objects[0].lineStyle).toBe('dashed');
+    engine.strokeManager.undo();
+    expect(engine.strokeManager.objects[0].lineStyle).toBe('solid');
+  });
+
+  it('creates rectangle and ellipse objects from drag gestures', () => {
+    const engine = new DrawingEngine(createMockContainer(), 800, 600);
+    engine.beginShape('rectangle', 10, 20);
+    engine.updateShape(80, 70);
+    engine.endShape();
+    engine.beginShape('ellipse', 100, 120);
+    engine.updateShape(180, 200);
+    engine.endShape();
+
+    expect(engine.strokeManager.objects.map((object) => object.kind)).toEqual(['rectangle', 'ellipse']);
+    expect(engine.strokeManager.objects[0].width).toBe(70);
+    expect(engine.strokeManager.objects[1].height).toBe(80);
   });
 });
 

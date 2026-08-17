@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.3
+
+- Added automatic black/white ink contrast when switching between dark and light paper tones.
+- Applied the same contrast behavior to SVG and PDF exports.
+- Preserved two-finger pinch zoom while selection and shape tools ignore single-finger palms.
+- Added Pencil pointer capture so rectangles and ellipses commit reliably when the pointer moves.
+- Added startup toolbar routing retries for slow iPad workspace restoration.
+
 ## 1.3.2
 
 - Fixed multi-step undo and redo history after asynchronous view/store attachment.

@@ -296,6 +296,7 @@ export async function mountBlackboardEmbed(repo: IDrawingRepository, embedEl: HT
 
     e.stopPropagation();
     e.preventDefault();
+    (e.target as HTMLElement & { setPointerCapture?: (pointerId: number) => void }).setPointerCapture?.(e.pointerId);
     // Drop editor focus before anything else so Obsidian's mobile bottom toolbar (the
     // Scribble trigger) never raises for a drawing stroke.
     suppressEditorFocus();

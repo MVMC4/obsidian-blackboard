@@ -1,6 +1,7 @@
 import { getStroke } from 'perfect-freehand';
 import { INK_PROFILES } from '../domain/entities';
 import type { Background, DiagramObject, InkProfile, Stroke } from '../domain/entities';
+import { readableInkColor } from '../domain/ink-color';
 
 export function getSvgPathFromStroke(points: number[][]): string {
   if (points.length < 2) return '';
@@ -94,15 +95,15 @@ export function exportSvg(
       simulatePressure: inkProfile.simulatePressure,
     });
     const d = getSvgPathFromStroke(outlinePoints);
-    return `<path d="${d}" fill="${stroke.color}" opacity="${stroke.opacity}"/>`;
+    return `<path d="${d}" fill="${readableInkColor(stroke.color, background.color)}" opacity="${stroke.opacity}"/>`;
   });
 
   const objectMarkup = objects.map((object) => {
     const dash = object.lineStyle === 'dashed' ? ' stroke-dasharray="8 6"' : object.lineStyle === 'dotted' ? ' stroke-dasharray="1 5"' : '';
-    const style = `stroke="${object.color}" stroke-width="${object.size}" stroke-linecap="round" opacity="${object.opacity}"${dash}`;
+    const style = `stroke="${readableInkColor(object.color, background.color)}" stroke-width="${object.size}" stroke-linecap="round" opacity="${object.opacity}"${dash}`;
     const x2 = object.x + object.width;
     const y2 = object.y + object.height;
-    const fill = `fill="${object.fill === 'transparent' ? 'none' : object.fill}" fill-opacity="${object.fillOpacity}"`;
+    const fill = `fill="${object.fill === 'transparent' ? 'none' : readableInkColor(object.fill, background.color)}" fill-opacity="${object.fillOpacity}"`;
     if (object.kind === 'rectangle') return `<rect x="${Math.min(object.x, x2)}" y="${Math.min(object.y, y2)}" width="${Math.abs(object.width)}" height="${Math.abs(object.height)}" ${style} ${fill}/>`;
     if (object.kind === 'ellipse') return `<ellipse cx="${(object.x + x2) / 2}" cy="${(object.y + y2) / 2}" rx="${Math.abs(object.width / 2)}" ry="${Math.abs(object.height / 2)}" ${style} ${fill}/>`;
     const angle = Math.atan2(object.height, object.width);

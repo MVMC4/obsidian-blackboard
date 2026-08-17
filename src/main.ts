@@ -80,6 +80,13 @@ export default class BlackboardPlugin extends Plugin {
     this.app.workspace.onLayoutReady?.(() => {
       ensureToolbar();
       window.setTimeout(ensureToolbar, 250);
+      // On iPad, workspace layout restoration can finish after the first layout-ready
+      // callback. Retry routing briefly so a drawing opened directly at app startup cannot
+      // leave the toolbar hidden until the tab is manually reopened.
+      for (const delay of [750, 1500, 3000]) {
+        const retry = window.setTimeout(ensureToolbar, delay);
+        this.register(() => window.clearTimeout(retry));
+      }
     });
     // Flush pending debounced saves before the app is suspended (iPad lock screen / tab
     // hidden). A frozen WebView never fires the save timer, so an unflushed stroke would be

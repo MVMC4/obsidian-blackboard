@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { getSvgPathFromStroke, getStrokeBounds, exportSvg } from '../src/application/export-service';
 import { exportPdf } from '../src/application/pdf-export';
+import { readableInkColor } from '../src/domain/ink-color';
 import type { Stroke, Point, Background } from '../src/domain/entities';
 
 function makeStroke(points: Point[], color = '#ffffff', tool: 'pen' | 'highlighter' = 'pen'): Stroke {
@@ -175,5 +176,19 @@ describe('exportPdf', () => {
 
     expect(result).toContain('[8 6] 0 d');
     expect(result).toContain(' re S');
+  });
+});
+
+describe('readableInkColor', () => {
+  it('maps white ink to black on a light paper tone', () => {
+    expect(readableInkColor('#ffffff', '#ffffff')).toBe('#000000');
+  });
+
+  it('maps black ink to white on a dark paper tone', () => {
+    expect(readableInkColor('#000000', '#000000')).toBe('#ffffff');
+  });
+
+  it('keeps accent colors unchanged', () => {
+    expect(readableInkColor('#ff0000', '#ffffff')).toBe('#ff0000');
   });
 });

@@ -4,6 +4,7 @@ import type { Background, DiagramObject, DiagramObjectKind, InkProfile, Point, S
 import { StrokeManager } from '../domain/stroke-manager';
 import { ToolManager } from '../domain/tool-manager';
 import { distToSegment, fitContentToBox, screenToContent, centerContentInBox, type ViewTransform } from '../domain/geometry';
+import { readableInkColor } from '../domain/ink-color';
 
 /** View-scale clamp shared by the presentation-facing transform mutators. */
 const MIN_SCALE = 0.1;
@@ -904,7 +905,7 @@ export class DrawingEngine {
     });
 
     ctx.globalAlpha = stroke.opacity;
-    ctx.fillStyle = stroke.color;
+    ctx.fillStyle = readableInkColor(stroke.color, this.page.color);
     this.fillOutline(ctx, outlinePoints);
   }
 
@@ -1030,7 +1031,7 @@ export class DrawingEngine {
     const h = object.height;
     ctx.save();
     ctx.globalAlpha = object.opacity;
-    ctx.strokeStyle = object.color;
+    ctx.strokeStyle = readableInkColor(object.color, this.page.color);
     ctx.lineWidth = object.size;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -1041,7 +1042,7 @@ export class DrawingEngine {
     if (preview) ctx.setLineDash([6, 4]);
     if (object.fill !== 'transparent' && object.fillOpacity > 0) {
       ctx.globalAlpha = object.fillOpacity;
-      ctx.fillStyle = object.fill;
+      ctx.fillStyle = readableInkColor(object.fill, this.page.color);
       if (object.kind === 'ellipse') {
         ctx.beginPath();
         ctx.ellipse(x + w / 2, y + h / 2, Math.abs(w / 2), Math.abs(h / 2), 0, 0, Math.PI * 2);

@@ -1,5 +1,6 @@
 import { getStroke } from 'perfect-freehand';
 import type { Background, DiagramObject, InkProfile, Stroke } from '../domain/entities';
+import { readableInkColor } from '../domain/ink-color';
 
 function colorRgb(color: string): [number, number, number] {
   const match = /^#([0-9a-f]{6})$/i.exec(color) || /^#([0-9a-f]{3})$/i.exec(color);
@@ -56,10 +57,10 @@ function ellipsePath(cx: number, cy: number, rx: number, ry: number): string {
     `${number(cx + k * rx)} ${number(cy - ry)} ${number(cx + rx)} ${number(cy - k * ry)} ${number(cx + rx)} ${number(cy)} c h`;
 }
 
-function shapeCommands(object: DiagramObject): string[] {
+function shapeCommands(object: DiagramObject, paperColor: string): string[] {
   const x2 = object.x + object.width;
   const y2 = object.y + object.height;
-  const commands = [setStrokeColor(object.color), `${number(object.size)} w`, '1 J', '1 j'];
+  const commands = [setStrokeColor(readableInkColor(object.color, paperColor)), `${number(object.size)} w`, '1 J', '1 j'];
   if (object.lineStyle === 'dashed') commands.push('[8 6] 0 d');
   else if (object.lineStyle === 'dotted') commands.push('[1 5] 0 d');
   else commands.push('[] 0 d');
@@ -113,9 +114,9 @@ export function exportPdf(
       simulatePressure: inkProfile?.simulatePressure ?? false,
     });
     if (outline.length < 3) continue;
-    commands.push(setFillColor(stroke.color), `${outline.map((point, index) => `${number(point[0])} ${number(point[1])} ${index === 0 ? 'm' : 'l'}`).join(' ')} h f`);
+    commands.push(setFillColor(readableInkColor(stroke.color, background.color)), `${outline.map((point, index) => `${number(point[0])} ${number(point[1])} ${index === 0 ? 'm' : 'l'}`).join(' ')} h f`);
   }
-  for (const object of objects) commands.push(...shapeCommands(object));
+  for (const object of objects) commands.push(...shapeCommands(object, background.color));
   commands.push('Q');
   const stream = commands.join('\n');
   const objectsPdf = [

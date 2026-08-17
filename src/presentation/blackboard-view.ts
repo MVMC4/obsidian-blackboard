@@ -560,6 +560,11 @@ export class BlackboardView extends TextFileView {
       return e.pointerType === 'pen' || e.pointerType === 'mouse';
     };
 
+    const isPinchOnlyTool = (): boolean => {
+      const tool = engine.toolManager.activeTool;
+      return tool === 'selection' || tool === 'line' || tool === 'arrow' || tool === 'rectangle' || tool === 'ellipse';
+    };
+
     const onDocPointerDown = (e: PointerEvent) => {
       const inside = isInsideDrawing(e);
       const drawInput = isDrawingInput(e);
@@ -571,21 +576,16 @@ export class BlackboardView extends TextFileView {
       // Standalone finger navigation: a touch pans/pinch-zooms the view, it never draws.
       // While a pen stroke is active, ignore fingers so a resting palm cannot pan.
       if (!this.isEmbedded && e.pointerType === 'touch') {
-        const tool = engine.toolManager.activeTool;
         // Selection and shape tools are tap/drag controls. A palm must never become a
-        // competing navigation pointer while one of these tools is active; doing so made
-        // selection and line-style/color changes appear random on iPad.
-        if (tool === 'selection' || tool === 'line' || tool === 'arrow' || tool === 'rectangle' || tool === 'ellipse') {
-          e.stopPropagation();
-          e.preventDefault();
-          return;
-        }
+        // competing single-finger navigation pointer while one of these tools is active.
+        // We still retain the pointer as a pending pinch participant, so two-finger zoom
+        // remains available in selection mode.
         if (this.strokeActive) return; // palm rejection
         e.stopPropagation();
         e.preventDefault();
-        this.userInteracted = true;
         this.navPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
         this.pinchPrev = null; // re-baseline the pinch on the next move
+        if (!isPinchOnlyTool()) this.userInteracted = true;
         return;
       }
 
@@ -612,6 +612,7 @@ export class BlackboardView extends TextFileView {
       }
       e.stopPropagation();
       e.preventDefault();
+      (e.target as HTMLElement & { setPointerCapture?: (pointerId: number) => void }).setPointerCapture?.(e.pointerId);
       // Stop re-fitting the standalone view on resize once the user has drawn.
       this.userInteracted = true;
       this.strokeActive = true;
@@ -665,7 +666,7 @@ export class BlackboardView extends TextFileView {
             if (mdx || mdy) engine.panBy(mdx, mdy);
           }
           this.pinchPrev = { dist, x: mx, y: my };
-        } else {
+        } else if (!isPinchOnlyTool()) {
           const dx = e.clientX - prev.x;
           const dy = e.clientY - prev.y;
           if (dx || dy) engine.panBy(dx, dy);
