@@ -152,6 +152,22 @@ describe('GlobalToolbar — QA3: undo/redo light up when a stroke ends', () => {
 
     expect(undoBtn.disabled).toBe(false);
   });
+
+  it('uses the semantic click fallback for shape tools and global undo', () => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const mgr = new SurfaceManager();
+    const surface = undoRedoSurface({ undoable: true, redoable: false });
+    const undo = vi.spyOn(surface, 'undo');
+    tb = new GlobalToolbar(host, mgr);
+    mgr.register(surface, document.createElement('div'));
+    mgr.setActive(surface);
+
+    host.querySelector('[data-tool="rectangle"]')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(surface.activeTool).toBe('rectangle');
+    host.querySelector('[data-action="undo"]')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(undo).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('GlobalToolbar — QA2: re-centers on viewport changes (mini-keyboard / orientation)', () => {

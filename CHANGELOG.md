@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.5
+
+- Added reliable semantic-click fallback for every toolbar action, including rectangle, ellipse, Undo, and Redo.
+- Added Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z, and Ctrl/Cmd+Y shortcuts on active drawing surfaces.
+- Persisted unfinished shape/stroke mutations when iPad sends pointercancel.
+- Added focused regression coverage for the audited interaction paths.
+
 ## 1.3.4
 
 - Added a mobile click fallback for Paper tone and line-style controls when iPad does not deliver a usable pointerup.

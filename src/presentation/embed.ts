@@ -365,8 +365,10 @@ export async function mountBlackboardEmbed(repo: IDrawingRepository, embedEl: HT
       if (engine.endSelection()) void saveDrawing();
     } else if (tool === 'line' || tool === 'arrow' || tool === 'rectangle' || tool === 'ellipse') {
       engine.endShape();
+      void saveDrawing();
     } else {
       engine.endStroke();
+      void saveDrawing();
     }
     engine.clearEraserCursor?.();
     e.stopPropagation();

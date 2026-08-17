@@ -96,6 +96,29 @@ export default class BlackboardPlugin extends Plugin {
     });
     this.registerDomEvent(activeWindow, 'pagehide', () => this.documentStore.flushAll());
 
+    // Keep undo/redo available even when the floating toolbar is clipped or a mobile
+    // pointer gesture prevents its button pointerup. Scope the shortcut to the active drawing
+    // surface so Obsidian's normal editor history remains untouched everywhere else.
+    this.registerDomEvent(activeDocument, 'keydown', (event: KeyboardEvent) => {
+      const surface = this.surfaceManager.getActive();
+      if (!surface || !(event.ctrlKey || event.metaKey) || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, [contenteditable="true"]')) return;
+      const key = event.key.toLowerCase();
+      const redo = key === 'y' || (key === 'z' && event.shiftKey);
+      if (key !== 'z' && !redo) return;
+      if (redo) {
+        if (!surface.canRedo()) return;
+        surface.redo();
+      } else {
+        if (!surface.canUndo()) return;
+        surface.undo();
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      this.surfaceManager.refresh();
+    });
+
     this.registerEvent(this.app.workspace.on('active-leaf-change', () => { ensureToolbar(); this.routeToolbar(); }));
     // Keep the toolbar clamped inside the active view when the layout changes
     // (sidebar toggled, pane resized, device rotated).

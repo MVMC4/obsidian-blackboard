@@ -128,7 +128,7 @@ export class GlobalToolbar {
     for (const t of TOOLS) {
       const btn = this.iconButton(t.icon, t.label);
       btn.dataset.tool = t.name;
-      btn.addEventListener('pointerup', (e) => {
+      this.bindPress(btn, (e) => {
         e.stopPropagation();
         // Per-tool colour memory: each tool keeps its OWN stored colour, so switching
         // tools must NOT carry the active colour across (carrying it turned the
@@ -160,7 +160,7 @@ export class GlobalToolbar {
     // Spectrum-only: the conic rainbow fills the whole well, with no center-color dot.
     this.colorWell.className = 'blackboard-gt-swatch blackboard-gt-colorwell';
     this.colorWell.setAttribute('aria-label', 'Color');
-    this.colorWell.addEventListener('pointerup', (e) => {
+    this.bindPress(this.colorWell, (e) => {
       e.stopPropagation();
       // The eraser has no color, so the color picker is a no-op while it is active.
       if (this.surface?.activeTool === 'eraser') return;
@@ -171,32 +171,32 @@ export class GlobalToolbar {
 
     const sizeBtn = this.iconButton('size', 'Brush size');
     sizeBtn.classList.add('blackboard-gt-size-btn');
-    sizeBtn.addEventListener('pointerup', (e) => { e.stopPropagation(); this.togglePopover('size'); });
+    this.bindPress(sizeBtn, (e) => { e.stopPropagation(); this.togglePopover('size'); });
     this.surfaceControls.push(sizeBtn);
     this.sizeBtn = sizeBtn;
     this.root.appendChild(sizeBtn);
     const pageBtn = this.iconButton('page', 'Paper style');
-    pageBtn.addEventListener('pointerup', (e) => { e.stopPropagation(); this.togglePopover('page'); });
+    this.bindPress(pageBtn, (e) => { e.stopPropagation(); this.togglePopover('page'); });
     this.surfaceControls.push(pageBtn);
     this.pageBtn = pageBtn;
     this.root.appendChild(pageBtn);
     const inkBtn = this.iconButton('ink', 'Ink fidelity');
-    inkBtn.addEventListener('pointerup', (e) => { e.stopPropagation(); this.togglePopover('ink'); });
+    this.bindPress(inkBtn, (e) => { e.stopPropagation(); this.togglePopover('ink'); });
     this.surfaceControls.push(inkBtn);
     this.inkBtn = inkBtn;
     this.root.appendChild(inkBtn);
     const styleBtn = this.iconButton('style', 'Shape line style');
-    styleBtn.addEventListener('pointerup', (e) => { e.stopPropagation(); this.togglePopover('style'); });
+    this.bindPress(styleBtn, (e) => { e.stopPropagation(); this.togglePopover('style'); });
     this.surfaceControls.push(styleBtn);
     this.styleBtn = styleBtn;
     this.root.appendChild(styleBtn);
     const exportBtn = this.iconButton('export', 'Export drawing');
-    exportBtn.addEventListener('pointerup', (e) => { e.stopPropagation(); this.togglePopover('export'); });
+    this.bindPress(exportBtn, (e) => { e.stopPropagation(); this.togglePopover('export'); });
     this.surfaceControls.push(exportBtn);
     this.exportBtn = exportBtn;
     this.root.appendChild(exportBtn);
     const deleteBtn = this.iconButton('delete', 'Delete selection');
-    deleteBtn.addEventListener('pointerup', (e) => {
+    this.bindPress(deleteBtn, (e) => {
       e.stopPropagation();
       this.surface?.deleteSelection?.();
       this.sync();
@@ -208,29 +208,29 @@ export class GlobalToolbar {
 
     this.undoBtn = this.iconButton('undo', 'Undo');
     this.undoBtn.dataset.action = 'undo';
-    this.undoBtn.addEventListener('pointerup', (e) => { e.stopPropagation(); this.closePopovers(); this.surface?.undo(); this.sync(); });
+    this.bindPress(this.undoBtn, (e) => { e.stopPropagation(); this.closePopovers(); this.surface?.undo(); this.sync(); });
     this.surfaceControls.push(this.undoBtn);
     this.root.appendChild(this.undoBtn);
     this.redoBtn = this.iconButton('redo', 'Redo');
     this.redoBtn.dataset.action = 'redo';
-    this.redoBtn.addEventListener('pointerup', (e) => { e.stopPropagation(); this.closePopovers(); this.surface?.redo(); this.sync(); });
+    this.bindPress(this.redoBtn, (e) => { e.stopPropagation(); this.closePopovers(); this.surface?.redo(); this.sync(); });
     this.surfaceControls.push(this.redoBtn);
     this.root.appendChild(this.redoBtn);
     this.root.appendChild(this.separator());
 
     const newBtn = this.iconButton('plus', 'New drawing');
     newBtn.dataset.action = 'new-drawing';
-    newBtn.addEventListener('pointerup', (e) => { e.stopPropagation(); this.closePopovers(); this.onNewDrawing?.(); });
+    this.bindPress(newBtn, (e) => { e.stopPropagation(); this.closePopovers(); this.onNewDrawing?.(); });
     this.root.appendChild(newBtn);
 
     const insertBtn = this.iconButton('insert-existing', 'Insert existing drawing');
     insertBtn.dataset.action = 'insert-existing';
-    insertBtn.addEventListener('pointerup', (e) => { e.stopPropagation(); this.closePopovers(); this.onInsertExisting?.(); });
+    this.bindPress(insertBtn, (e) => { e.stopPropagation(); this.closePopovers(); this.onInsertExisting?.(); });
     this.root.appendChild(insertBtn);
     this.root.appendChild(this.separator());
 
     const collapseBtn = this.iconButton('collapse', 'Minimize toolbar');
-    collapseBtn.addEventListener('pointerup', (e) => { e.stopPropagation(); this.setCollapsed(true); });
+    this.bindPress(collapseBtn, (e) => { e.stopPropagation(); this.setCollapsed(true); });
     this.root.appendChild(collapseBtn);
 
     this.buildColorPopover();
@@ -239,6 +239,25 @@ export class GlobalToolbar {
     this.buildInkPopover();
     this.buildStylePopover();
     this.buildExportPopover();
+  }
+
+  /**
+   * iPadOS/WKWebView can deliver a semantic click without a reliable pointerup when an
+   * overlay, palm contact, or native gesture participates in the interaction. Every toolbar
+   * command uses this adapter so tool selection (including rectangle/ellipse) and undo/redo
+   * have the same reliable activation path. The timestamp suppresses the synthetic click
+   * that normally follows a handled pointerup.
+   */
+  private bindPress(button: HTMLElement, handler: (event: Event) => void): void {
+    let lastPointerActivation = 0;
+    button.addEventListener('pointerup', (event) => {
+      lastPointerActivation = Date.now();
+      handler(event);
+    });
+    button.addEventListener('click', (event) => {
+      if (Date.now() - lastPointerActivation < 500) return;
+      handler(event);
+    });
   }
 
   private buildColorPopover(): void {

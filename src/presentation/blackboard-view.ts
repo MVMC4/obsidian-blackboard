@@ -741,8 +741,13 @@ export class BlackboardView extends TextFileView {
       this.strokeActive = false;
       const tool = engine.toolManager.activeTool;
       if (tool === 'selection') engine.endSelection();
-      else if (tool === 'line' || tool === 'arrow' || tool === 'rectangle' || tool === 'ellipse') engine.endShape();
-      else engine.endStroke();
+      else if (tool === 'line' || tool === 'arrow' || tool === 'rectangle' || tool === 'ellipse') {
+        engine.endShape();
+        this.persist();
+      } else {
+        engine.endStroke();
+        this.persist();
+      }
       engine.clearEraserCursor?.();
       e.stopPropagation();
     };
